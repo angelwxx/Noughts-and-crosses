@@ -7,12 +7,14 @@ BOARD_SIZE = 600
 BAR_HEIGHT = 100
 WIDTH, HEIGHT = BOARD_SIZE, BOARD_SIZE + BAR_HEIGHT
 CELL = BOARD_SIZE // 3
+
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GRAY = (235, 235, 235)
 DARK_GRAY = (120, 120, 120)
 X_COLOR = (28, 170, 156)
 O_COLOR = (242, 85, 96)
+WIN_LINE_COLOR = (255, 190, 0)
 
 PLAYING, ROUND_OVER = "playing", "round_over"
 
@@ -54,16 +56,18 @@ class Game:
         self.board = [["" for _ in range(3)] for _ in range(3)]
         self.current = "X"
         self.winner = None
+        self.win_line = None
 
     def reset_scores(self):
         self.scores = {"X": 0, "O": 0, "Draw": 0}
 
     def make_move(self, row, col):
         self.board[row][col] = self.current
-        winner, _ = find_winner(self.board)
+        winner, line = find_winner(self.board)
 
         if winner:
             self.winner = winner
+            self.win_line = line
             self.scores[winner] += 1
             self.state = ROUND_OVER
         elif is_full(self.board):
@@ -134,6 +138,13 @@ class Game:
                         self.screen, X_COLOR, (cx - offset, cy + offset), (cx + offset, cy - offset), 15)
                 elif self.board[row][col] == "O":
                     pygame.draw.circle(self.screen, O_COLOR, (cx, cy), 70, 15)
+
+        if self.win_line:
+            start_row, start_col = self.win_line[0]
+            end_row, end_col = self.win_line[2]
+            start = self.cell_center(start_row, start_col)
+            end = self.cell_center(end_row, end_col)
+            pygame.draw.line(self.screen, WIN_LINE_COLOR, start, end, 10)
 
         self.draw_score_bar()
 
