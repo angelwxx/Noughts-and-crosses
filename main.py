@@ -7,7 +7,6 @@ BOARD_SIZE = 600
 BAR_HEIGHT = 100
 WIDTH, HEIGHT = BOARD_SIZE, BOARD_SIZE + BAR_HEIGHT
 CELL = BOARD_SIZE // 3
-
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GRAY = (235, 235, 235)
@@ -16,7 +15,8 @@ X_COLOR = (28, 170, 156)
 O_COLOR = (242, 85, 96)
 WIN_LINE_COLOR = (255, 190, 0)
 
-PLAYING, ROUND_OVER = "playing", "round_over"
+MENU, PLAYING, ROUND_OVER = "menu", "playing", "round_over"
+TWO_PLAYERS = "two_players"
 
 LINES = (
     [[(r, c) for c in range(3)] for r in range(3)]
@@ -48,8 +48,11 @@ class Game:
         self.font_mid = pygame.font.Font(None, 48)
         self.font_small = pygame.font.Font(None, 28)
 
-        self.state = PLAYING
+        self.state = MENU
+        self.mode = TWO_PLAYERS
         self.scores = {"X": 0, "O": 0, "Draw": 0}
+
+        self.two_players_button = pygame.Rect(150, 260, 300, 70)
         self.reset_board()
 
     def reset_board(self):
@@ -60,6 +63,12 @@ class Game:
 
     def reset_scores(self):
         self.scores = {"X": 0, "O": 0, "Draw": 0}
+
+    def start_game(self, mode):
+        self.mode = mode
+        self.reset_scores()
+        self.reset_board()
+        self.state = PLAYING
 
     def make_move(self, row, col):
         self.board[row][col] = self.current
@@ -79,6 +88,11 @@ class Game:
     def handle_click(self, pos):
         x, y = pos
 
+        if self.state == MENU:
+            if self.two_players_button.collidepoint(pos):
+                self.start_game(TWO_PLAYERS)
+            return
+
         if self.state == ROUND_OVER:
             self.reset_board()
             self.state = PLAYING
@@ -90,7 +104,9 @@ class Game:
                 self.make_move(row, col)
 
     def handle_key(self, key):
-        if key == pygame.K_r:
+        if key == pygame.K_ESCAPE:
+            self.state = MENU
+        elif key == pygame.K_r and self.state != MENU:
             self.reset_scores()
             self.reset_board()
             self.state = PLAYING
@@ -102,6 +118,21 @@ class Game:
         surface = font.render(text, True, color)
         self.screen.blit(surface, surface.get_rect(center=center))
 
+    def draw_button(self, rect, label):
+        if rect.collidepoint(pygame.mouse.get_pos()):
+            color, text_color = X_COLOR, WHITE
+        else:
+            color, text_color = GRAY, BLACK
+        pygame.draw.rect(self.screen, color, rect, border_radius=12)
+        self.draw_text(label, self.font_mid, text_color, rect.center)
+
+    def draw_menu(self):
+        self.screen.fill(WHITE)
+        self.draw_text("Tic-Tac-Toe", self.font_big, BLACK, (WIDTH // 2, 130))
+        self.draw_text("Choose a game mode", self.font_small,
+                       DARK_GRAY, (WIDTH // 2, 200))
+        self.draw_button(self.two_players_button, "2 Players")
+
     def draw_score_bar(self):
         pygame.draw.rect(self.screen, GRAY, (0, 0, WIDTH, BAR_HEIGHT))
         self.draw_text(f"X: {self.scores['X']}",
@@ -112,9 +143,9 @@ class Game:
                        self.font_mid, O_COLOR, (WIDTH - 110, 38))
 
         if self.state == PLAYING:
-            hint = f"Turn: {self.current}   |   R - reset score"
+            hint = f"Turn: {self.current}   |   ESC - menu   |   R - reset score"
         else:
-            hint = "R - reset score"
+            hint = "ESC - menu   |   R - reset score"
         self.draw_text(hint, self.font_small, DARK_GRAY, (WIDTH // 2, 78))
 
     def draw_board(self):
@@ -160,9 +191,12 @@ class Game:
                        DARK_GRAY, (WIDTH // 2, top + 115))
 
     def draw(self):
-        self.draw_board()
-        if self.state == ROUND_OVER:
-            self.draw_round_over()
+        if self.state == MENU:
+            self.draw_menu()
+        else:
+            self.draw_board()
+            if self.state == ROUND_OVER:
+                self.draw_round_over()
         pygame.display.update()
 
     def run(self):
