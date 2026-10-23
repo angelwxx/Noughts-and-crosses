@@ -7,8 +7,11 @@ WIDTH, HEIGHT = 600, 600
 CELL = WIDTH // 3
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
+DARK_GRAY = (120, 120, 120)
 X_COLOR = (28, 170, 156)
 O_COLOR = (242, 85, 96)
+
+PLAYING, ROUND_OVER = "playing", "round_over"
 
 LINES = (
     [[(r, c) for c in range(3)] for r in range(3)]
@@ -37,39 +40,41 @@ class Game:
         self.clock = pygame.time.Clock()
 
         self.font_big = pygame.font.Font(None, 90)
+        self.font_small = pygame.font.Font(None, 28)
+
+        self.state = PLAYING
         self.reset_board()
 
     def reset_board(self):
         self.board = [["" for _ in range(3)] for _ in range(3)]
         self.current = "X"
+        self.winner = None
 
     def make_move(self, row, col):
         self.board[row][col] = self.current
         winner, _ = find_winner(self.board)
 
         if winner:
-            self.show_message(f"Player {winner} wins!")
+            self.winner = winner
+            self.state = ROUND_OVER
         elif is_full(self.board):
-            self.show_message("Draw!")
+            self.state = ROUND_OVER
         else:
             self.current = "O" if self.current == "X" else "X"
 
-    def show_message(self, message):
-        self.draw_board()
-        self.draw_text(message, self.font_big, BLACK,
-                       (WIDTH // 2, HEIGHT // 2))
-        pygame.display.update()
-        pygame.time.delay(2000)
-        self.reset_board()
-
     def handle_click(self, pos):
         x, y = pos
+
+        if self.state == ROUND_OVER:
+            self.reset_board()
+            self.state = PLAYING
+            return
+
         row, col = y // CELL, x // CELL
         if self.board[row][col] == "":
             self.make_move(row, col)
 
-    @staticmethod
-    def cell_center(row, col):
+    def cell_center(self, row, col):
         return col * CELL + CELL // 2, row * CELL + CELL // 2
 
     def draw_text(self, text, font, color, center):
@@ -96,8 +101,21 @@ class Game:
                 elif self.board[row][col] == "O":
                     pygame.draw.circle(self.screen, O_COLOR, (cx, cy), 70, 15)
 
+    def draw_round_over(self):
+        overlay = pygame.Surface((WIDTH, 160), pygame.SRCALPHA)
+        overlay.fill((255, 255, 255, 225))
+        top = (HEIGHT - 160) // 2
+        self.screen.blit(overlay, (0, top))
+
+        message = f"Player {self.winner} wins!" if self.winner else "Draw!"
+        self.draw_text(message, self.font_big, BLACK, (WIDTH // 2, top + 55))
+        self.draw_text("Click to play again", self.font_small,
+                       DARK_GRAY, (WIDTH // 2, top + 115))
+
     def draw(self):
         self.draw_board()
+        if self.state == ROUND_OVER:
+            self.draw_round_over()
         pygame.display.update()
 
     def run(self):
