@@ -3,10 +3,13 @@ import pygame
 
 pygame.init()
 
-WIDTH, HEIGHT = 600, 600
-CELL = WIDTH // 3
+BOARD_SIZE = 600
+BAR_HEIGHT = 100
+WIDTH, HEIGHT = BOARD_SIZE, BOARD_SIZE + BAR_HEIGHT
+CELL = BOARD_SIZE // 3
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
+GRAY = (235, 235, 235)
 DARK_GRAY = (120, 120, 120)
 X_COLOR = (28, 170, 156)
 O_COLOR = (242, 85, 96)
@@ -40,9 +43,11 @@ class Game:
         self.clock = pygame.time.Clock()
 
         self.font_big = pygame.font.Font(None, 90)
+        self.font_mid = pygame.font.Font(None, 48)
         self.font_small = pygame.font.Font(None, 28)
 
         self.state = PLAYING
+        self.scores = {"X": 0, "O": 0, "Draw": 0}
         self.reset_board()
 
     def reset_board(self):
@@ -50,14 +55,19 @@ class Game:
         self.current = "X"
         self.winner = None
 
+    def reset_scores(self):
+        self.scores = {"X": 0, "O": 0, "Draw": 0}
+
     def make_move(self, row, col):
         self.board[row][col] = self.current
         winner, _ = find_winner(self.board)
 
         if winner:
             self.winner = winner
+            self.scores[winner] += 1
             self.state = ROUND_OVER
         elif is_full(self.board):
+            self.scores["Draw"] += 1
             self.state = ROUND_OVER
         else:
             self.current = "O" if self.current == "X" else "X"
@@ -70,24 +80,48 @@ class Game:
             self.state = PLAYING
             return
 
-        row, col = y // CELL, x // CELL
-        if self.board[row][col] == "":
-            self.make_move(row, col)
+        if self.state == PLAYING and y >= BAR_HEIGHT:
+            row, col = (y - BAR_HEIGHT) // CELL, x // CELL
+            if self.board[row][col] == "":
+                self.make_move(row, col)
+
+    def handle_key(self, key):
+        if key == pygame.K_r:
+            self.reset_scores()
+            self.reset_board()
+            self.state = PLAYING
 
     def cell_center(self, row, col):
-        return col * CELL + CELL // 2, row * CELL + CELL // 2
+        return col * CELL + CELL // 2, BAR_HEIGHT + row * CELL + CELL // 2
 
     def draw_text(self, text, font, color, center):
         surface = font.render(text, True, color)
         self.screen.blit(surface, surface.get_rect(center=center))
 
+    def draw_score_bar(self):
+        pygame.draw.rect(self.screen, GRAY, (0, 0, WIDTH, BAR_HEIGHT))
+        self.draw_text(f"X: {self.scores['X']}",
+                       self.font_mid, X_COLOR, (110, 38))
+        self.draw_text(
+            f"Draws: {self.scores['Draw']}", self.font_mid, DARK_GRAY, (WIDTH // 2, 38))
+        self.draw_text(f"O: {self.scores['O']}",
+                       self.font_mid, O_COLOR, (WIDTH - 110, 38))
+
+        if self.state == PLAYING:
+            hint = f"Turn: {self.current}   |   R - reset score"
+        else:
+            hint = "R - reset score"
+        self.draw_text(hint, self.font_small, DARK_GRAY, (WIDTH // 2, 78))
+
     def draw_board(self):
         self.screen.fill(WHITE)
         for i in range(1, 3):
-            pygame.draw.line(self.screen, BLACK, (i * CELL, 0),
-                             (i * CELL, HEIGHT), 5)
-            pygame.draw.line(self.screen, BLACK,
-                             (0, i * CELL), (WIDTH, i * CELL), 5)
+            pygame.draw.line(self.screen, BLACK, (i * CELL,
+                             BAR_HEIGHT), (i * CELL, HEIGHT), 5)
+            pygame.draw.line(
+                self.screen, BLACK, (0, BAR_HEIGHT + i *
+                                     CELL), (WIDTH, BAR_HEIGHT + i * CELL), 5
+            )
 
         for row in range(3):
             for col in range(3):
@@ -101,10 +135,12 @@ class Game:
                 elif self.board[row][col] == "O":
                     pygame.draw.circle(self.screen, O_COLOR, (cx, cy), 70, 15)
 
+        self.draw_score_bar()
+
     def draw_round_over(self):
         overlay = pygame.Surface((WIDTH, 160), pygame.SRCALPHA)
         overlay.fill((255, 255, 255, 225))
-        top = (HEIGHT - 160) // 2
+        top = BAR_HEIGHT + (BOARD_SIZE - 160) // 2
         self.screen.blit(overlay, (0, top))
 
         message = f"Player {self.winner} wins!" if self.winner else "Draw!"
@@ -126,6 +162,8 @@ class Game:
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     self.handle_click(event.pos)
+                if event.type == pygame.KEYDOWN:
+                    self.handle_key(event.key)
 
             self.draw()
             self.clock.tick(60)
